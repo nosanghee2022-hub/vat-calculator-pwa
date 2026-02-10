@@ -1,0 +1,1510 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#2563eb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="부가세계산기">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>대형평수 아파트 건물분 부가세 계산기</title>
+<style>
+  :root {
+    --bg: #f5f7fa;
+    --card: #ffffff;
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --text: #1e293b;
+    --text-muted: #64748b;
+    --border: #e2e8f0;
+    --success: #16a34a;
+    --fail: #dc2626;
+    --accent-bg: #f0f4ff;
+    --vat-bg: #fef2f2;
+    --vat-text: #b91c1c;
+    --input-bg: #f8fafc;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 20px;
+    line-height: 1.6;
+  }
+
+  .container { max-width: 720px; margin: 0 auto; }
+
+  h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 24px;
+  }
+
+  .card {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow);
+  }
+
+  .card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 100px;
+    font-weight: 500;
+  }
+
+  .badge-success { background: #dcfce7; color: var(--success); }
+  .badge-fail { background: #fef2f2; color: var(--fail); }
+  .badge-partial { background: #fef9c3; color: #a16207; }
+  .badge-loading { background: #e0e7ff; color: #4338ca; }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .form-row.single { grid-template-columns: 1fr; }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-muted);
+  }
+
+  input[type="text"], input[type="password"], select {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.95rem;
+    background: var(--input-bg);
+    color: var(--text);
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+
+  select {
+    appearance: auto;
+    cursor: pointer;
+  }
+
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+  }
+
+  input.has-auto-value {
+    border-color: var(--success);
+    background: #f0fdf4;
+  }
+
+  button {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-primary {
+    background: var(--primary);
+    color: white;
+    width: 100%;
+  }
+
+  .btn-primary:hover { background: var(--primary-hover); }
+  .btn-primary:disabled { background: #94a3b8; cursor: not-allowed; }
+
+  .btn-calc {
+    background: #059669;
+    color: white;
+    width: 100%;
+    margin-top: 8px;
+  }
+
+  .btn-calc:hover { background: #047857; }
+
+  .result-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+  }
+
+  .result-row:last-child { border-bottom: none; }
+  .result-row .label { color: var(--text-muted); }
+  .result-row .value { font-weight: 600; text-align: right; }
+
+  .vat-result {
+    background: var(--vat-bg);
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 12px;
+    text-align: center;
+  }
+
+  .vat-result .vat-label {
+    font-size: 0.85rem;
+    color: var(--vat-text);
+    margin-bottom: 4px;
+  }
+
+  .vat-result .vat-amount {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--vat-text);
+  }
+
+  .loading {
+    display: none;
+    text-align: center;
+    padding: 12px;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+  }
+
+  .loading.active { display: block; }
+
+  .spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #dataSection, #resultSection { display: none; }
+
+  .note {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: var(--accent-bg);
+    border-radius: 6px;
+  }
+
+  .settings-toggle {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    user-select: none;
+    margin-bottom: 8px;
+    display: inline-block;
+  }
+
+  .settings-toggle:hover { color: var(--primary); }
+
+  .settings-body { display: none; margin-bottom: 12px; }
+  .settings-body.open { display: block; }
+
+  .pnu-info {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  .api-key-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+  }
+
+  .api-key-row input { flex: 1; }
+
+  .btn-sm {
+    padding: 10px 16px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    background: var(--primary);
+    color: white;
+    border-radius: 8px;
+  }
+
+  .btn-sm:hover { background: var(--primary-hover); }
+
+  .saved-msg {
+    font-size: 0.75rem;
+    color: var(--success);
+    display: none;
+    margin-top: 4px;
+  }
+
+  .status-msg {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  .approx-note {
+    font-size: 0.7rem;
+    color: #a16207;
+    font-weight: normal;
+  }
+
+  #debugLog {
+    background: #1e293b;
+    color: #e2e8f0;
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    display: none;
+  }
+
+  #debugLog.active { display: block; }
+
+  #debugLog .log-time { color: #64748b; }
+  #debugLog .log-info { color: #60a5fa; }
+  #debugLog .log-ok { color: #4ade80; }
+  #debugLog .log-err { color: #f87171; }
+  #debugLog .log-warn { color: #fbbf24; }
+  #debugLog .log-url { color: #a78bfa; text-decoration: underline; }
+
+  .debug-toggle {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    user-select: none;
+    text-align: right;
+    margin-top: 8px;
+  }
+
+  .debug-toggle:hover { color: var(--primary); }
+
+  .debug-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 4px;
+  }
+
+  .debug-actions button {
+    font-size: 0.7rem;
+    padding: 4px 10px;
+    background: #334155;
+    color: #e2e8f0;
+    border-radius: 4px;
+  }
+
+  .debug-actions button:hover { background: #475569; }
+
+  @media (max-width: 600px) {
+    body { padding: 12px; }
+    h1 { font-size: 1.2rem; }
+    .form-row { grid-template-columns: 1fr; }
+    .card { padding: 16px; }
+    .vat-result .vat-amount { font-size: 1.4rem; }
+    .api-key-row { flex-direction: column; }
+    .api-key-row input { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>대형평수 아파트 건물분 부가세 계산기</h1>
+
+  <!-- 입력 섹션 -->
+  <div class="card">
+    <div class="card-title">조회 정보 입력</div>
+
+    <!-- API 키 설정 -->
+    <span class="settings-toggle" onclick="toggleSettings()">&#9881; API 키 설정</span>
+    <div class="settings-body" id="settingsBody">
+      <div class="form-group" style="margin-bottom:12px">
+        <label>VWorld 인증키 (주소→PNU 변환)</label>
+        <div class="api-key-row">
+          <input type="password" id="vworldApiKey" placeholder="VWorld API 인증키 입력">
+          <button class="btn-sm" onclick="saveApiKey('vworld')">저장</button>
+        </div>
+        <span class="saved-msg" id="vworldSavedMsg">저장됨</span>
+        <div class="note" style="margin-top:8px">vworld.kr에서 무료 발급. 저장 시 브라우저에 보관됩니다.</div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label>VWorld NSDI 인증키 (공시지가 조회)</label>
+        <div class="api-key-row">
+          <input type="password" id="vworldNsdiKey" placeholder="VWorld NSDI 개별공시지가속성조회 키">
+          <button class="btn-sm" onclick="saveApiKey('vworldNsdi')">저장</button>
+        </div>
+        <span class="saved-msg" id="vworldNsdiSavedMsg">저장됨</span>
+        <div class="note" style="margin-top:8px">vworld.kr → 오픈API → 개별공시지가속성조회에서 별도 발급</div>
+      </div>
+      <div class="form-group">
+        <label>공공데이터포털 인증키 (건축물대장 조회)</label>
+        <div class="api-key-row">
+          <input type="password" id="dataGoKrApiKey" placeholder="공공데이터포털 API 인증키 입력">
+          <button class="btn-sm" onclick="saveApiKey('dataGoKr')">저장</button>
+        </div>
+        <span class="saved-msg" id="dataGoKrSavedMsg">저장됨</span>
+        <div class="note" style="margin-top:8px">data.go.kr에서 무료 발급 (건축물대장정보 서비스 활용신청 필요)</div>
+      </div>
+    </div>
+
+    <div class="form-row single">
+      <div class="form-group">
+        <label>주소</label>
+        <input type="text" id="address" placeholder="예: 전남 광양시 중동 1681, 103동 13층1306호">
+      </div>
+    </div>
+    <div class="form-row single">
+      <div class="form-group">
+        <label>매도가격 (원)</label>
+        <input type="text" id="salePrice" placeholder="예: 1,500,000,000" oninput="formatNumber(this); recalculate()">
+      </div>
+    </div>
+    <button class="btn-primary" id="fetchBtn" onclick="fetchData()">조회</button>
+    <div class="loading" id="loading">
+      <span class="spinner"></span> <span id="loadingMsg">데이터 조회 중...</span>
+    </div>
+  </div>
+
+  <!-- 조회 결과 + 수동 입력 섹션 -->
+  <div class="card" id="dataSection">
+    <div class="card-title">
+      조회 결과 / 데이터 입력
+      <span class="badge" id="bldgBadge"></span>
+      <span class="badge" id="vwAddrBadge"></span>
+      <span class="badge" id="vwPriceBadge"></span>
+      <span class="badge" id="hometaxBadge"></span>
+    </div>
+    <div class="note">조회된 값을 확인하고, 필요 시 직접 수정하세요. 값 변경 시 자동 재계산됩니다.</div>
+    <div id="pnuInfo" class="pnu-info" style="display:none"></div>
+    <div style="height:12px"></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>대지권면적 (㎡) <span class="approx-note" id="landAreaNote"></span></label>
+        <input type="text" id="landArea" oninput="recalculate()">
+      </div>
+      <div class="form-group">
+        <label>전용면적 (㎡)</label>
+        <input type="text" id="exclusiveArea" oninput="recalculate()">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>공급면적/건물면적 (㎡)</label>
+        <input type="text" id="supplyArea" oninput="recalculate()">
+      </div>
+      <div class="form-group">
+        <label>사용승인년도</label>
+        <input type="text" id="approvalYear" placeholder="예: 2005" oninput="recalculate()">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>개별공시지가 (원/㎡)</label>
+        <input type="text" id="officialLandPrice" placeholder="VWorld 조회 또는 수동 입력" oninput="formatNumber(this); homeTaxResult=null; recalculate()">
+      </div>
+      <div class="form-group">
+        <label>양도연도</label>
+        <input type="text" id="saleYear" oninput="homeTaxResult=null; recalculate()">
+      </div>
+    </div>
+    <button class="btn-calc" onclick="fetchHomeTaxAndRecalculate()">재계산 (홈택스 재조회)</button>
+  </div>
+
+  <!-- 계산 결과 섹션 -->
+  <div class="card" id="resultSection">
+    <div class="card-title">계산 결과</div>
+    <div class="result-row">
+      <span class="label">데이터 출처</span>
+      <span class="value" id="r_source" style="color:var(--primary)">-</span>
+    </div>
+    <div class="result-row">
+      <span class="label">건물신축가격기준액</span>
+      <span class="value" id="r_basePrice">-</span>
+    </div>
+    <div class="result-row">
+      <span class="label">구조지수</span>
+      <span class="value" id="r_structureIndex">-</span>
+    </div>
+    <div class="result-row">
+      <span class="label">용도지수</span>
+      <span class="value" id="r_usageIndex">-</span>
+    </div>
+    <div class="result-row">
+      <span class="label">위치지수</span>
+      <span class="value" id="r_locationIndex">-</span>
+    </div>
+    <div class="result-row">
+      <span class="label">경과연수</span>
+      <span class="value" id="r_elapsedYears">-</span>
+    </div>
+    <div class="result-row">
+      <span class="label">잔가율</span>
+      <span class="value" id="r_residualRate">-</span>
+    </div>
+    <div class="result-row">
+      <span class="label">㎡당 금액 (1,000원 미만 절사)</span>
+      <span class="value" id="r_pricePerSqm">-</span>
+    </div>
+    <div style="height:8px; border-bottom: 2px solid var(--border);"></div>
+    <div class="result-row">
+      <span class="label">토지기준시가 (A)</span>
+      <span class="value" id="r_landStd">-</span>
+    </div>
+    <div class="result-row">
+      <span class="label">건물기준시가 (B)</span>
+      <span class="value" id="r_buildStd">-</span>
+    </div>
+    <div class="result-row">
+      <span class="label">건물비율 B/(A+B)</span>
+      <span class="value" id="r_buildRatio">-</span>
+    </div>
+    <div class="result-row">
+      <span class="label">건물가액 (C)</span>
+      <span class="value" id="r_buildValue">-</span>
+    </div>
+    <div class="vat-result">
+      <div class="vat-label">건물분 부가세 (C x 10%)</div>
+      <div class="vat-amount" id="r_vat">-</div>
+    </div>
+  </div>
+
+  <!-- 디버그 로그 -->
+  <div class="card" id="debugCard" style="display:none">
+    <span class="debug-toggle" onclick="toggleDebugLog()">&#128270; 에러 로그 (클릭하여 펼치기/접기)</span>
+    <div class="debug-actions" id="debugActions" style="display:none">
+      <button onclick="copyDebugLog()">복사</button>
+      <button onclick="clearDebugLog()">지우기</button>
+    </div>
+    <div id="debugLog"></div>
+  </div>
+</div>
+
+<script>
+// ===== 유틸리티 =====
+function formatNumber(el) {
+  let v = el.value.replace(/[^0-9]/g, '');
+  if (v) el.value = Number(v).toLocaleString('ko-KR');
+}
+
+function parseNum(id) {
+  const el = document.getElementById(id);
+  if (!el) return null;
+  const v = el.value.replace(/[^0-9.]/g, '');
+  return v ? parseFloat(v) : null;
+}
+
+function fmt(n) {
+  if (n == null || isNaN(n)) return '-';
+  return Math.round(n).toLocaleString('ko-KR');
+}
+
+function getLocationIndex(price) {
+  const table = [
+    [50000, 0.80], [100000, 0.90], [200000, 0.95], [500000, 1.00],
+    [1000000, 1.02], [3000000, 1.04], [5000000, 1.06], [10000000, 1.08],
+    [Infinity, 1.10]
+  ];
+  for (const [limit, index] of table) {
+    if (price <= limit) return index;
+  }
+  return 1.10;
+}
+
+// ===== 홈택스 건물기준시가 API =====
+let homeTaxResult = null;
+let buildingStrctCdNm = '';
+
+function mapStructureCode(strctCdNm) {
+  // 아파트 기본값: 03 (철골철근콘크리트, 구조지수 1.1)
+  if (!strctCdNm) return '03';
+  const s = strctCdNm.trim();
+  if (s.includes('철골철근') || s.includes('SRC')) return '03';
+  if (s.includes('철근콘크리트') || s.includes('RC')) return '03';
+  if (s.includes('시멘트벽돌') || s.includes('와이어패널')) return '06';
+  if (s.includes('경량철골')) return '09';
+  if (s.includes('조립식패널') && s.includes('철골')) return '07';
+  if (s.includes('조립식패널')) return '08';
+  if (s.includes('연와') || s.includes('조적')) return '05';
+  if (s.includes('철골')) return '05';
+  if (s.includes('통나무')) return '01';
+  if (s.includes('목구조')) return '02';
+  if (s.includes('ALC') || s.includes('스틸하우스')) return '12';
+  if (s.includes('목조')) return '12';
+  if (s.includes('컨테이너') || s.includes('철파이프')) return '11';
+  if (s.includes('황토') || s.includes('시멘트블록')) return '13';
+  if (s.includes('석회') || s.includes('흙벽돌') || s.includes('돌담') || s.includes('토담')) return '10';
+  return '03';
+}
+
+async function fetchHomeTaxPrice(ncYr, bldSfl, trnYr, bldStrcCd, bldUsgCd, paLv) {
+  const url = 'https://teht.hometax.go.kr/wqAction.do?actionId=ATESFAAA022R01&screenId=UTESFAAA022&popupYn=false&realScreenId=';
+  const body = JSON.stringify({
+    excParkYn: 'N',
+    ncYr: String(ncYr),
+    bldSfl: String(bldSfl),
+    acqYr: String(trnYr),
+    trnYr: String(trnYr),
+    acqAthmBldStrcCd: bldStrcCd,
+    acqAthmBldUsgCd: bldUsgCd,
+    trnAthmBldStrcCd: bldStrcCd,
+    trnAthmBldUsgCd: bldUsgCd,
+    acqAthmPaLv: String(paLv),
+    trnAthmPaLv: String(paLv)
+  });
+  debugLog('info', `홈택스 API 요청: ncYr=${ncYr}, bldSfl=${bldSfl}, trnYr=${trnYr}, strc=${bldStrcCd}, usg=${bldUsgCd}, paLv=${paLv}`);
+  const res = await corsProxy(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+    body
+  });
+  const data = await res.json();
+  debugLog('info', `홈택스 API 응답: ${JSON.stringify(data).substring(0, 500)}`);
+  if (data.resultMsg?.result === 'S' && data.sflAmtTrn) {
+    debugLog('ok', `홈택스 성공: ㎡당=${data.sflAmtTrn}원, 기준액=${data.ncBldBaseCftTrn}, 구조=${data.bldStrcIdxTrn}, 용도=${data.bldUsgIdxTrn}, 위치=${data.bldLctnIdxTrn}, 잔가율=${data.lpcrtTrn}`);
+    return data;
+  }
+  debugLog('warn', `홈택스 API 실패 응답: ${JSON.stringify(data).substring(0, 300)}`);
+  return null;
+}
+
+function setBadge(id, status, label) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (status === 'success') {
+    el.className = 'badge badge-success';
+    el.textContent = label + ': 성공';
+  } else if (status === 'partial') {
+    el.className = 'badge badge-partial';
+    el.textContent = label + ': 일부';
+  } else if (status === 'skip') {
+    el.className = 'badge badge-partial';
+    el.textContent = label + ': 미조회';
+  } else if (status === 'nokey') {
+    el.className = 'badge badge-fail';
+    el.textContent = label + ': API키 없음';
+  } else if (status === 'loading') {
+    el.className = 'badge badge-loading';
+    el.textContent = label + ': 조회중...';
+  } else {
+    el.className = 'badge badge-fail';
+    el.textContent = label + ': 실패';
+  }
+}
+
+function setLoadingMsg(msg) {
+  document.getElementById('loadingMsg').textContent = msg;
+}
+
+// ===== 디버그 로그 =====
+function debugLog(level, msg) {
+  const el = document.getElementById('debugLog');
+  const card = document.getElementById('debugCard');
+  card.style.display = 'block';
+  el.classList.add('active');
+  document.getElementById('debugActions').style.display = 'flex';
+
+  const time = new Date().toLocaleTimeString('ko-KR');
+  const cls = level === 'err' ? 'log-err' : level === 'ok' ? 'log-ok' : level === 'warn' ? 'log-warn' : 'log-info';
+  const prefix = level === 'err' ? 'ERROR' : level === 'ok' ? 'OK' : level === 'warn' ? 'WARN' : 'INFO';
+  el.innerHTML += `<span class="log-time">[${time}]</span> <span class="${cls}">[${prefix}]</span> ${msg}\n`;
+  el.scrollTop = el.scrollHeight;
+}
+
+function toggleDebugLog() {
+  const el = document.getElementById('debugLog');
+  const actions = document.getElementById('debugActions');
+  if (el.classList.contains('active')) {
+    el.classList.remove('active');
+    actions.style.display = 'none';
+  } else {
+    el.classList.add('active');
+    actions.style.display = 'flex';
+  }
+}
+
+function copyDebugLog() {
+  const el = document.getElementById('debugLog');
+  const text = el.innerText;
+  navigator.clipboard.writeText(text).then(() => alert('복사됨!'));
+}
+
+function clearDebugLog() {
+  document.getElementById('debugLog').innerHTML = '';
+}
+
+// ===== API 키 관리 =====
+const DEFAULT_API_KEYS = {
+  vworld: '36764B5F-B4E4-3DD2-A44D-DF38000C0DA9',
+  vworldNsdi: 'D9391468-F71A-3D47-90E8-1C9735E333B1',
+  dataGoKr: 'cc0e2a5867f9d0cdf5fdad1807d1b08a0a6fff9420aa7d1742fdeb27ebb5fe67'
+};
+
+function loadApiKeys() {
+  const vworld = localStorage.getItem('vworld_api_key') || DEFAULT_API_KEYS.vworld;
+  const vworldNsdi = localStorage.getItem('vworld_nsdi_api_key') || DEFAULT_API_KEYS.vworldNsdi;
+  const dataGoKr = localStorage.getItem('data_go_kr_api_key') || DEFAULT_API_KEYS.dataGoKr;
+  document.getElementById('vworldApiKey').value = vworld;
+  document.getElementById('vworldNsdiKey').value = vworldNsdi;
+  document.getElementById('dataGoKrApiKey').value = dataGoKr;
+  if (vworld && dataGoKr) {
+    document.getElementById('settingsBody').classList.remove('open');
+  }
+  return { vworld, vworldNsdi, dataGoKr };
+}
+
+function saveApiKey(type) {
+  if (type === 'vworld') {
+    const key = document.getElementById('vworldApiKey').value.trim();
+    localStorage.setItem('vworld_api_key', key);
+    const msg = document.getElementById('vworldSavedMsg');
+    msg.style.display = 'inline';
+    setTimeout(() => msg.style.display = 'none', 2000);
+  } else if (type === 'vworldNsdi') {
+    const key = document.getElementById('vworldNsdiKey').value.trim();
+    localStorage.setItem('vworld_nsdi_api_key', key);
+    const msg = document.getElementById('vworldNsdiSavedMsg');
+    msg.style.display = 'inline';
+    setTimeout(() => msg.style.display = 'none', 2000);
+  } else if (type === 'dataGoKr') {
+    const key = document.getElementById('dataGoKrApiKey').value.trim();
+    localStorage.setItem('data_go_kr_api_key', key);
+    const msg = document.getElementById('dataGoKrSavedMsg');
+    msg.style.display = 'inline';
+    setTimeout(() => msg.style.display = 'none', 2000);
+  }
+}
+
+function toggleSettings() {
+  document.getElementById('settingsBody').classList.toggle('open');
+}
+
+// ===== CORS 프록시 (타임아웃 포함) =====
+function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...options, signal: controller.signal })
+    .finally(() => clearTimeout(timer));
+}
+
+async function corsProxy(url, options = {}) {
+  const isGet = !options.method || options.method === 'GET';
+  const shortUrl = url.length > 80 ? url.substring(0, 80) + '...' : url;
+
+  // 1차: 직접 호출
+  try {
+    debugLog('info', `직접 호출 시도: <span class="log-url">${shortUrl}</span>`);
+    const res = await fetchWithTimeout(url, { ...options, mode: 'cors' }, 8000);
+    if (res.ok || res.status < 500) {
+      debugLog('ok', `직접 호출 성공 (HTTP ${res.status})`);
+      return res;
+    }
+    debugLog('warn', `직접 호출 HTTP ${res.status}`);
+  } catch(e) {
+    debugLog('warn', `직접 호출 실패: ${e.name === 'AbortError' ? '타임아웃(8초)' : e.message}`);
+  }
+
+  // 2차: corsproxy.io
+  try {
+    debugLog('info', `corsproxy.io 프록시 시도...`);
+    const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
+    const res = await fetchWithTimeout(proxyUrl, options, 10000);
+    if (res.ok || res.status < 500) {
+      debugLog('ok', `corsproxy.io 성공 (HTTP ${res.status})`);
+      return res;
+    }
+    debugLog('warn', `corsproxy.io HTTP ${res.status}`);
+  } catch(e) {
+    debugLog('warn', `corsproxy.io 실패: ${e.name === 'AbortError' ? '타임아웃(10초)' : e.message}`);
+  }
+
+  // 3차: cors.eu.org
+  try {
+    debugLog('info', `cors.eu.org 프록시 시도...`);
+    const proxyUrl = 'https://cors.eu.org/' + url;
+    const res = await fetchWithTimeout(proxyUrl, options, 10000);
+    if (res.ok || res.status < 500) {
+      debugLog('ok', `cors.eu.org 성공 (HTTP ${res.status})`);
+      return res;
+    }
+    debugLog('warn', `cors.eu.org HTTP ${res.status}`);
+  } catch(e) {
+    debugLog('warn', `cors.eu.org 실패: ${e.name === 'AbortError' ? '타임아웃(10초)' : e.message}`);
+  }
+
+  // 4차: allorigins (GET만)
+  if (isGet) {
+    try {
+      debugLog('info', `allorigins 프록시 시도...`);
+      const res = await fetchWithTimeout(
+        'https://api.allorigins.win/raw?url=' + encodeURIComponent(url), {}, 10000
+      );
+      if (res.ok) {
+        debugLog('ok', `allorigins 성공 (HTTP ${res.status})`);
+        return res;
+      }
+      debugLog('warn', `allorigins HTTP ${res.status}`);
+    } catch(e) {
+      debugLog('warn', `allorigins 실패: ${e.name === 'AbortError' ? '타임아웃(10초)' : e.message}`);
+    }
+  }
+
+  debugLog('err', `모든 프록시 실패: <span class="log-url">${shortUrl}</span>`);
+  throw new Error('모든 프록시 실패 (CORS 차단)');
+}
+
+// ===== 주소에서 동/호 파싱 =====
+function parseDongHo(address) {
+  const dongMatch = address.match(/제?(\d+)동/);
+  const hoMatch = address.match(/제?(\d+)호/);
+  return {
+    dongNm: dongMatch ? dongMatch[1] : '',
+    hoNm: hoMatch ? hoMatch[1] : ''
+  };
+}
+
+// ===== PNU 파싱 헬퍼 =====
+function makePnuResult(pnu, title) {
+  return {
+    pnu,
+    sigunguCd: pnu.substring(0, 5),
+    bjdongCd: pnu.substring(5, 10),
+    platGbCd: pnu.substring(10, 11),
+    bun: pnu.substring(11, 15),
+    ji: pnu.substring(15, 19),
+    title: title || ''
+  };
+}
+
+// ===== ② VWorld 주소검색 → PNU =====
+async function fetchPNU(address, apiKey) {
+  let searchAddr = address
+    .replace(/\s+제?\d+동/, '')
+    .replace(/\s+제?\d+호/, '')
+    .replace(/\s+\S+아파트/, '')
+    .replace(/\s+\S+빌라/, '')
+    .replace(/\s+\d+층/, '')
+    .trim();
+
+  // ── 1단계: 지번 주소 검색 ──
+  debugLog('info', `[1단계] 지번 검색 시도: "${searchAddr}"`);
+  try {
+    const url1 = `https://api.vworld.kr/req/search?service=search&request=search&version=2.0&crs=EPSG:4326&size=10&page=1&query=${encodeURIComponent(searchAddr)}&type=address&category=parcel&format=json&errorformat=json&key=${apiKey}`;
+    const res1 = await corsProxy(url1);
+    const data1 = await res1.json();
+    debugLog('info', `지번 검색 응답: status=${data1.response?.status}, items=${data1.response?.result?.items?.length || 0}`);
+    if (data1.response?.status === 'OK' && data1.response?.result?.items?.length > 0) {
+      const item = data1.response.result.items[0];
+      debugLog('ok', `PNU 변환 성공 (지번): ${item.id} (${item.title || ''})`);
+      return makePnuResult(item.id, item.title);
+    }
+  } catch(e) { debugLog('warn', '지번 검색 실패: ' + e.message); }
+
+  // ── 2단계: 도로명 주소 검색 → 좌표 획득 ──
+  let point = null;
+  debugLog('info', `[2단계] 도로명 검색 시도: "${searchAddr}"`);
+  try {
+    const url2 = `https://api.vworld.kr/req/search?service=search&request=search&version=2.0&crs=EPSG:4326&size=10&page=1&query=${encodeURIComponent(searchAddr)}&type=address&category=road&format=json&errorformat=json&key=${apiKey}`;
+    const res2 = await corsProxy(url2);
+    const data2 = await res2.json();
+    debugLog('info', `도로명 검색 응답: status=${data2.response?.status}, items=${data2.response?.result?.items?.length || 0}`);
+    if (data2.response?.status === 'OK' && data2.response?.result?.items?.length > 0) {
+      const item = data2.response.result.items[0];
+      point = item.point;
+      debugLog('ok', `도로명 검색 성공: "${item.title}", 좌표: ${point?.x},${point?.y}`);
+    }
+  } catch(e) { debugLog('warn', '도로명 검색 실패: ' + e.message); }
+
+  // ── 2-1단계: Geocoding API로 좌표 획득 (fallback) ──
+  if (!point) {
+    debugLog('info', `[2-1단계] Geocoding API 시도...`);
+    try {
+      const url2b = `https://api.vworld.kr/req/address?service=address&request=getCoord&version=2.0&crs=epsg:4326&address=${encodeURIComponent(searchAddr)}&refine=true&simple=false&format=json&type=ROAD&key=${apiKey}`;
+      const res2b = await corsProxy(url2b);
+      const data2b = await res2b.json();
+      debugLog('info', `Geocoding 응답: status=${data2b.response?.status}`);
+      if (data2b.response?.status === 'OK' && data2b.response?.result?.point) {
+        point = data2b.response.result.point;
+        debugLog('ok', `Geocoding 성공: 좌표 ${point.x},${point.y}`);
+      }
+    } catch(e) { debugLog('warn', 'Geocoding 실패: ' + e.message); }
+  }
+
+  if (!point) {
+    debugLog('err', `주소에서 좌표를 찾을 수 없습니다: "${searchAddr}"`);
+    throw new Error('PNU 조회 실패: 주소를 찾을 수 없습니다');
+  }
+
+  // ── 3단계: 좌표 → 역지오코딩 → 지번 주소 ──
+  debugLog('info', `[3단계] 역지오코딩: ${point.x},${point.y} → 지번 변환`);
+  try {
+    const url3 = `https://api.vworld.kr/req/address?service=address&request=getAddress&version=2.0&crs=epsg:4326&point=${point.x},${point.y}&format=json&type=PARCEL&simple=false&key=${apiKey}`;
+    const res3 = await corsProxy(url3);
+    const data3 = await res3.json();
+    debugLog('info', `역지오코딩 응답: status=${data3.response?.status}`);
+
+    if (data3.response?.status === 'OK' && data3.response?.result?.length > 0) {
+      const parcelAddr = data3.response.result[0].text;
+      debugLog('ok', `지번 주소 변환 성공: "${parcelAddr}"`);
+
+      // ── 4단계: 변환된 지번 주소로 PNU 검색 ──
+      debugLog('info', `[4단계] 변환된 지번으로 PNU 검색: "${parcelAddr}"`);
+      const url4 = `https://api.vworld.kr/req/search?service=search&request=search&version=2.0&crs=EPSG:4326&size=10&page=1&query=${encodeURIComponent(parcelAddr)}&type=address&category=parcel&format=json&errorformat=json&key=${apiKey}`;
+      const res4 = await corsProxy(url4);
+      const data4 = await res4.json();
+      debugLog('info', `지번 재검색 응답: status=${data4.response?.status}, items=${data4.response?.result?.items?.length || 0}`);
+
+      if (data4.response?.status === 'OK' && data4.response?.result?.items?.length > 0) {
+        const item = data4.response.result.items[0];
+        debugLog('ok', `PNU 변환 최종 성공: ${item.id} (${item.title || ''})`);
+        return makePnuResult(item.id, item.title);
+      }
+    }
+  } catch(e) { debugLog('err', '역지오코딩/재검색 실패: ' + e.message); }
+
+  debugLog('err', 'PNU 변환 최종 실패');
+  throw new Error('PNU 조회 실패: 지번 변환 불가');
+}
+
+// ===== ③ 건축물대장 API =====
+async function fetchBuildingRegister(pnuData, address, dataGoKrKey) {
+  const { sigunguCd, bjdongCd, bun, ji } = pnuData;
+  const result = { approvalYear: null, platArea: null, totArea: null, vlRatEstmTotArea: null, exclusiveArea: null, supplyArea: null, landArea: null, strctCdNm: null };
+  debugLog('info', `건축물대장 조회 시작: sigunguCd=${sigunguCd}, bjdongCd=${bjdongCd}, bun=${bun}, ji=${ji}`);
+
+  // 3-1) 총괄표제부: 사용승인일, 대지면적
+  try {
+    const titleUrl = `https://apis.data.go.kr/1613000/BldRgstHubService/getBrRecapTitleInfo?sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&bun=${bun}&ji=${ji}&_type=json&numOfRows=100&pageNo=1&serviceKey=${dataGoKrKey}`;
+    debugLog('info', '총괄표제부 API 요청...');
+    const res = await corsProxy(titleUrl);
+    const data = await res.json();
+    debugLog('info', `총괄표제부 응답: resultCode=${data?.response?.header?.resultCode}, totalCount=${data?.response?.body?.totalCount || 0}`);
+    if (data?.response?.header?.resultCode !== '00') {
+      debugLog('warn', `총괄표제부 API 에러: ${data?.response?.header?.resultMsg || JSON.stringify(data).substring(0, 200)}`);
+    }
+    const items = data?.response?.body?.items?.item;
+    if (items) {
+      const arr = Array.isArray(items) ? items : [items];
+      debugLog('info', `총괄표제부 ${arr.length}건, 첫번째: useAprDay=${arr[0]?.useAprDay}, platArea=${arr[0]?.platArea}, totArea=${arr[0]?.totArea}, vlRatEstmTotArea=${arr[0]?.vlRatEstmTotArea}`);
+      if (arr.length > 0) {
+        const item = arr[0];
+        if (item.useAprDay && String(item.useAprDay).trim()) {
+          result.approvalYear = String(item.useAprDay).trim().substring(0, 4);
+        }
+        if (item.platArea) {
+          result.platArea = parseFloat(item.platArea);
+        }
+        if (item.totArea) {
+          result.totArea = parseFloat(item.totArea);
+        }
+        if (item.vlRatEstmTotArea) {
+          result.vlRatEstmTotArea = parseFloat(item.vlRatEstmTotArea);
+          debugLog('info', `용적률산정연면적: ${result.vlRatEstmTotArea}㎡`);
+        }
+        if (item.strctCdNm && String(item.strctCdNm).trim()) {
+          result.strctCdNm = String(item.strctCdNm).trim();
+          debugLog('info', `구조: ${result.strctCdNm}`);
+        }
+      }
+    } else {
+      debugLog('warn', '총괄표제부 items 없음');
+    }
+  } catch(e) { debugLog('err', '총괄표제부 조회 실패: ' + e.message); }
+
+  // 3-1-B) useAprDay 없으면 표제부(getBrTitleInfo)에서 시도
+  if (!result.approvalYear) {
+    try {
+      const { dongNm } = parseDongHo(address);
+      let titleUrl2 = `https://apis.data.go.kr/1613000/BldRgstHubService/getBrTitleInfo?sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&bun=${bun}&ji=${ji}&_type=json&numOfRows=100&pageNo=1&serviceKey=${dataGoKrKey}`;
+      debugLog('info', '표제부(getBrTitleInfo) 사용승인일 조회...');
+      const res2 = await corsProxy(titleUrl2);
+      const data2 = await res2.json();
+      const items2 = data2?.response?.body?.items?.item;
+      if (items2) {
+        const arr2 = Array.isArray(items2) ? items2 : [items2];
+        debugLog('info', `표제부 ${arr2.length}건, 샘플: dongNm=${arr2[0]?.dongNm}, useAprDay=${arr2[0]?.useAprDay}`);
+        // 동 매칭 시도, 없으면 첫 번째 항목 사용
+        let matched = arr2.find(it => it.useAprDay && String(it.useAprDay).trim() && dongNm && String(it.dongNm || '').includes(dongNm));
+        if (!matched) matched = arr2.find(it => it.useAprDay && String(it.useAprDay).trim());
+        if (matched) {
+          result.approvalYear = String(matched.useAprDay).substring(0, 4);
+          debugLog('ok', `표제부에서 사용승인년도 확인: ${result.approvalYear}`);
+          if (!result.strctCdNm && matched.strctCdNm && String(matched.strctCdNm).trim()) {
+            result.strctCdNm = String(matched.strctCdNm).trim();
+            debugLog('info', `표제부에서 구조 확인: ${result.strctCdNm}`);
+          }
+        } else {
+          debugLog('warn', '표제부에서도 useAprDay 없음');
+        }
+      }
+    } catch(e) { debugLog('err', '표제부 조회 실패: ' + e.message); }
+  }
+
+  // 3-2) 전유부: 전용면적, 공용면적
+  try {
+    const { dongNm, hoNm } = parseDongHo(address);
+    debugLog('info', `전유부 파싱: dongNm="${dongNm || '없음'}", hoNm="${hoNm || '없음'}"`);
+
+    const baseExpUrl = `https://apis.data.go.kr/1613000/BldRgstHubService/getBrExposPubuseAreaInfo?sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&bun=${bun}&ji=${ji}&_type=json&serviceKey=${dataGoKrKey}`;
+    let matchedItems = null;
+
+    // 시도 1: API 동/호 필터 (숫자만 → "숫자+동/호" 형식 순서로)
+    const filterVariants = [];
+    if (dongNm || hoNm) {
+      filterVariants.push({ d: dongNm, h: hoNm, label: '숫자' });
+      filterVariants.push({ d: dongNm ? dongNm + '동' : '', h: hoNm ? hoNm + '호' : '', label: '접미사' });
+    }
+    for (const fv of filterVariants) {
+      if (matchedItems) break;
+      let filterUrl = baseExpUrl + '&numOfRows=100&pageNo=1';
+      if (fv.d) filterUrl += `&dongNm=${encodeURIComponent(fv.d)}`;
+      if (fv.h) filterUrl += `&hoNm=${encodeURIComponent(fv.h)}`;
+      debugLog('info', `전유부 API 필터(${fv.label}): dongNm="${fv.d}", hoNm="${fv.h}"`);
+      try {
+        const res = await corsProxy(filterUrl);
+        const data = await res.json();
+        const tc = parseInt(data?.response?.body?.totalCount || '0');
+        debugLog('info', `전유부 필터 응답(${fv.label}): resultCode=${data?.response?.header?.resultCode}, totalCount=${tc}`);
+        if (tc > 0) {
+          const items = data?.response?.body?.items?.item;
+          matchedItems = Array.isArray(items) ? items : [items];
+          debugLog('ok', `전유부 API 필터(${fv.label}) 성공: ${matchedItems.length}건`);
+        }
+      } catch(e) { debugLog('warn', `전유부 필터(${fv.label}) 실패: ${e.message}`); }
+    }
+
+    // 시도 2: 필터 모두 실패 시 페이지네이션으로 클라이언트 매칭
+    if (!matchedItems && (dongNm || hoNm)) {
+      debugLog('info', '전유부 필터 실패 → 페이지네이션 클라이언트 매칭 시도...');
+      const totalRes = await corsProxy(baseExpUrl + '&numOfRows=1&pageNo=1');
+      const totalData = await totalRes.json();
+      const totalCount = parseInt(totalData?.response?.body?.totalCount || '0');
+      // 첫 페이지 샘플 로그
+      const sampleRes = await corsProxy(baseExpUrl + '&numOfRows=100&pageNo=1');
+      const sampleData = await sampleRes.json();
+      const sampleItems = sampleData?.response?.body?.items?.item;
+      if (sampleItems) {
+        const sArr = Array.isArray(sampleItems) ? sampleItems : [sampleItems];
+        const sample = sArr.slice(0, 3).map(it => `dongNm="${it.dongNm}" hoNm="${it.hoNm}"`);
+        debugLog('info', `전유부 샘플(총${totalCount}건): ${sample.join(' | ')}`);
+      }
+
+      // 페이지 순회하며 매칭 검색 (최대 50페이지)
+      const perPage = 100;
+      for (let pg = 1; pg <= Math.min(Math.ceil(totalCount / perPage), 50); pg++) {
+        try {
+          const pgRes = await corsProxy(baseExpUrl + `&numOfRows=${perPage}&pageNo=${pg}`);
+          const pgData = await pgRes.json();
+          const pgItems = pgData?.response?.body?.items?.item;
+          if (!pgItems) break;
+          const pgArr = Array.isArray(pgItems) ? pgItems : [pgItems];
+
+          const filtered = pgArr.filter(it => {
+            const d = String(it.dongNm || '').replace(/[^0-9]/g, '');
+            const h = String(it.hoNm || '').replace(/[^0-9]/g, '');
+            return (!dongNm || d === dongNm) && (!hoNm || h === hoNm);
+          });
+          if (filtered.length > 0) {
+            matchedItems = filtered;
+            debugLog('ok', `클라이언트 매칭 성공 (pg=${pg}): ${filtered.length}건`);
+            break;
+          }
+        } catch(e) { debugLog('warn', `페이지 ${pg} 조회 실패: ${e.message}`); break; }
+      }
+      if (!matchedItems) debugLog('warn', '페이지네이션 매칭 실패 - 동/호 불일치');
+    }
+
+    if (matchedItems && matchedItems.length > 0) {
+      let exclusiveTotal = 0, commonResidential = 0, commonOther = 0;
+
+      // 기타공용 키워드 (주차장, 기계실, 전기실, 관리사무소 등)
+      const otherPurposeKeywords = ['주차', '기계', '전기', '발전', '관리', '저수', '오수', '정화', '펌프', '쓰레기', '경비', '택배', 'MDF', '통신', '소방', '변전', '배전', '수전'];
+
+      function isOtherCommon(item) {
+        const flrGb = String(item.flrGbCdNm || item.flrGbCd || '');
+        const flrNo = parseInt(item.flrNo) || 0;
+        const etcPurps = String(item.etcPurps || '');
+        const mainPurps = String(item.mainPurpsCdNm || '');
+        const mainAtch = String(item.mainAtchGbCdNm || item.mainAtchGbCd || '');
+
+        // 1) 지하층 → 기타공용
+        if (flrGb.includes('지하') || flrNo < 0) return true;
+        // 2) 옥탑 → 기타공용
+        if (flrGb.includes('옥탑')) return true;
+        // 3) 부속건축물 → 기타공용
+        if (mainAtch.includes('부속') || mainAtch === '1') return true;
+        // 4) 기타용도에 기타공용 키워드 포함
+        if (etcPurps && otherPurposeKeywords.some(kw => etcPurps.includes(kw))) return true;
+        // 5) 주용도에 기타공용 키워드 포함
+        if (mainPurps && otherPurposeKeywords.some(kw => mainPurps.includes(kw))) return true;
+
+        return false;
+      }
+
+      for (const item of matchedItems) {
+        const area = parseFloat(item.area) || 0;
+        const gbCd = String(item.exposPubuseGbCdNm || item.exposPubuseGbCd || '');
+        const etcPurps = String(item.etcPurps || '');
+        const mainPurps = String(item.mainPurpsCdNm || '');
+        const flrGb = String(item.flrGbCdNm || '');
+        const flrNo = item.flrNo || '';
+
+        if (gbCd.includes('전유') || gbCd === '1') {
+          exclusiveTotal += area;
+          debugLog('info', `  [전유] ${area}㎡ (${flrGb}${flrNo}층, 용도:${etcPurps||mainPurps||'-'})`);
+        } else if (gbCd.includes('공용') || gbCd === '2') {
+          if (isOtherCommon(item)) {
+            commonOther += area;
+            debugLog('info', `  [기타공용] ${area}㎡ (${flrGb}${flrNo}층, 용도:${etcPurps||mainPurps||'-'})`);
+          } else {
+            commonResidential += area;
+            debugLog('info', `  [주거공용] ${area}㎡ (${flrGb}${flrNo}층, 용도:${etcPurps||mainPurps||'-'})`);
+          }
+        }
+      }
+      debugLog('info', `전유부 면적: 전유=${Math.round(exclusiveTotal*100)/100}, 주거공용=${Math.round(commonResidential*100)/100}, 기타공용=${Math.round(commonOther*100)/100}`);
+      if (exclusiveTotal > 0) {
+        result.exclusiveArea = Math.round(exclusiveTotal * 100) / 100;
+        result.supplyArea = Math.round((exclusiveTotal + commonResidential) * 100) / 100;
+        debugLog('info', `공급면적(홈택스용): ${result.supplyArea}㎡ = 전용${result.exclusiveArea} + 주거공용${Math.round(commonResidential*100)/100}`);
+      }
+    }
+  } catch(e) { debugLog('err', '전유부 조회 실패: ' + e.message); }
+
+  // 3-3) 대지권면적 계산
+  // 대지권면적 = 대지면적 × 공급면적 / 용적률산정연면적 (≈ Σ공급면적)
+  // 용적률산정연면적이 없으면 연면적 폴백
+  if (result.platArea && result.supplyArea) {
+    if (result.vlRatEstmTotArea && result.vlRatEstmTotArea > 0) {
+      result.landArea = Math.round(result.platArea * (result.supplyArea / result.vlRatEstmTotArea) * 100) / 100;
+      debugLog('ok', `대지권면적: ${result.landArea}㎡ (대지${result.platArea} × 공급${result.supplyArea} / 용적률산정연면적${result.vlRatEstmTotArea})`);
+    } else if (result.totArea && result.totArea > 0) {
+      result.landArea = Math.round(result.platArea * (result.supplyArea / result.totArea) * 100) / 100;
+      debugLog('warn', `대지권면적(폴백): ${result.landArea}㎡ (대지${result.platArea} × 공급${result.supplyArea} / 연면적${result.totArea}) - 용적률산정연면적 없어 부정확할 수 있음`);
+    } else {
+      debugLog('warn', '연면적 정보 없음 → 대지권면적 자동계산 불가. 수동 입력 필요');
+    }
+  }
+
+  return result;
+}
+
+// ===== ④ 공시지가 API (VWorld → data.go.kr 폴백) =====
+async function fetchOfficialLandPrice(pnu, vworldKey, nsdiKey, dataGoKrKey) {
+  // 4-A) VWorld Data API 시도
+  if (vworldKey) {
+    debugLog('info', `[공시지가 1차] VWorld 요청: PNU=${pnu}`);
+    try {
+      const url = `https://api.vworld.kr/req/data?service=data&version=2.0&request=GetFeature&format=json&errorformat=json&size=10&page=1&data=LT_P_LNDPCLARY&key=${vworldKey}&attrFilter=pnu:=:${pnu}&crs=EPSG:4326`;
+      const res = await corsProxy(url);
+      const data = await res.json();
+      debugLog('info', `VWorld 응답: status=${data.response?.status || 'N/A'}, features=${data.response?.result?.featureCollection?.features?.length || 0}`);
+
+      if (data.response?.status === 'OK' && data.response?.result?.featureCollection?.features?.length > 0) {
+        const features = data.response.result.featureCollection.features;
+        let maxYear = 0, maxPrice = 0;
+        for (const f of features) {
+          const yr = parseInt(f.properties?.stdrYear || '0');
+          const p = parseInt(f.properties?.pblntfPclnd || '0');
+          if (yr > maxYear && p > 0) { maxYear = yr; maxPrice = p; }
+        }
+        if (maxPrice > 0) {
+          debugLog('ok', `VWorld 공시지가 성공: ${maxPrice.toLocaleString()}원/㎡ (${maxYear}년)`);
+          return maxPrice;
+        }
+      }
+      debugLog('warn', `VWorld 공시지가 데이터 없음: ${JSON.stringify(data.response || data).substring(0, 200)}`);
+    } catch(e) {
+      debugLog('warn', `VWorld 공시지가 실패: ${e.message}`);
+    }
+  }
+
+  // 4-B) VWorld NSDI 개별공시지가 속성조회 API 폴백
+  const nsdiApiKey = nsdiKey || vworldKey;
+  if (nsdiApiKey) {
+    const currentYear = new Date().getFullYear();
+    for (let yr = currentYear; yr >= currentYear - 2; yr--) {
+      debugLog('info', `[공시지가 2차] VWorld NSDI 속성조회 (${yr}년) 요청...`);
+      try {
+        const url = `https://api.vworld.kr/ned/data/getIndvdLandPriceAttr?pnu=${pnu}&stdrYear=${yr}&format=json&numOfRows=10&pageNo=1&key=${nsdiApiKey}`;
+        const res = await corsProxy(url);
+        const data = await res.json();
+        debugLog('info', `NSDI 응답 (${yr}년): ${JSON.stringify(data).substring(0, 300)}`);
+
+        const items = data?.indvdLandPrices?.field || data?.indvdLandPrices || [];
+        const arr = Array.isArray(items) ? items : [items];
+
+        for (const item of arr) {
+          const price = parseInt(item?.pblntfPclnd || item?.lastPblntfPclnd || '0');
+          if (price > 0) {
+            debugLog('ok', `NSDI 공시지가 성공: ${price.toLocaleString()}원/㎡ (${yr}년)`);
+            return price;
+          }
+        }
+      } catch(e) {
+        debugLog('warn', `NSDI 공시지가 (${yr}년) 실패: ${e.message}`);
+      }
+    }
+  }
+
+  // 4-C) data.go.kr 개별공시지가 API 폴백
+  if (dataGoKrKey) {
+    const currentYear = new Date().getFullYear();
+    for (let yr = currentYear; yr >= currentYear - 2; yr--) {
+      debugLog('info', `[공시지가 3차] data.go.kr 개별공시지가 (${yr}년) 요청...`);
+      try {
+        const url = `https://apis.data.go.kr/1611000/nsdi/IndvdLandPriceService/attr/getIndvdLandPriceAttr?pnu=${pnu}&stdrYear=${yr}&format=json&numOfRows=10&pageNo=1&serviceKey=${dataGoKrKey}`;
+        const res = await corsProxy(url);
+        const text = await res.text();
+        let data;
+        try { data = JSON.parse(text); } catch {
+          debugLog('warn', `data.go.kr 공시지가 (${yr}년) 실패: 비정상 응답 - ${text.substring(0, 100)}`);
+          continue;
+        }
+        debugLog('info', `data.go.kr 응답 (${yr}년): ${JSON.stringify(data).substring(0, 300)}`);
+
+        const items = data?.indvdLandPrices?.field || data?.indvdLandPrices || [];
+        const arr = Array.isArray(items) ? items : [items];
+
+        for (const item of arr) {
+          const price = parseInt(item?.pblntfPclnd || item?.lastPblntfPclnd || '0');
+          if (price > 0) {
+            debugLog('ok', `data.go.kr 공시지가 성공: ${price.toLocaleString()}원/㎡ (${yr}년)`);
+            return price;
+          }
+        }
+      } catch(e) {
+        debugLog('warn', `data.go.kr 공시지가 (${yr}년) 실패: ${e.message}`);
+      }
+    }
+  }
+
+  debugLog('err', '공시지가 조회 실패 (VWorld + data.go.kr 모두 실패) → 수동 입력 후 "재계산" 버튼을 눌러주세요');
+  throw new Error('공시지가 조회 실패');
+}
+
+// ===== 메인 조회 함수 =====
+async function fetchData() {
+  const address = document.getElementById('address').value.trim();
+  const salePriceStr = document.getElementById('salePrice').value.replace(/[^0-9]/g, '');
+  const vworldApiKey = document.getElementById('vworldApiKey').value.trim();
+  const vworldNsdiKey = document.getElementById('vworldNsdiKey').value.trim();
+  const dataGoKrApiKey = document.getElementById('dataGoKrApiKey').value.trim();
+
+  clearDebugLog();
+  debugLog('info', `=== 조회 시작 ===`);
+  debugLog('info', `주소: "${address}"`);
+  debugLog('info', `VWorld키: ${vworldApiKey ? '있음(' + vworldApiKey.substring(0,4) + '...)' : '없음'}, NSDI키: ${vworldNsdiKey ? '있음(' + vworldNsdiKey.substring(0,4) + '...)' : '없음'}, 공공데이터키: ${dataGoKrApiKey ? '있음(' + dataGoKrApiKey.substring(0,4) + '...)' : '없음'}`);
+
+  if (!salePriceStr) {
+    alert('매도가격을 입력해주세요.');
+    return;
+  }
+
+  if (!address) {
+    alert('주소를 입력해주세요.');
+    return;
+  }
+
+  const btn = document.getElementById('fetchBtn');
+  const loading = document.getElementById('loading');
+  btn.disabled = true;
+  loading.classList.add('active');
+  document.getElementById('dataSection').style.display = 'block';
+
+  // 양도연도 기본값
+  const saleYearEl = document.getElementById('saleYear');
+  if (!saleYearEl.value.trim()) saleYearEl.value = new Date().getFullYear();
+
+  // 초기화
+  homeTaxResult = null;
+  buildingStrctCdNm = '';
+
+  // 배지 초기화
+  setBadge('bldgBadge', 'loading', '건축물대장');
+  setBadge('vwAddrBadge', 'loading', 'VWorld 주소');
+  setBadge('vwPriceBadge', 'loading', '공시지가');
+  setBadge('hometaxBadge', 'loading', '홈택스');
+
+  const resolvedAddress = address;
+
+  // ② VWorld 주소검색 → PNU
+  let pnuData = null;
+  if (vworldApiKey) {
+    setLoadingMsg('VWorld 주소 → PNU 변환 중...');
+    try {
+      pnuData = await fetchPNU(resolvedAddress, vworldApiKey);
+      setBadge('vwAddrBadge', 'success', 'VWorld 주소');
+
+      const pnuEl = document.getElementById('pnuInfo');
+      pnuEl.style.display = 'block';
+      pnuEl.textContent = 'PNU: ' + pnuData.pnu + (pnuData.title ? ' (' + pnuData.title + ')' : '');
+    } catch(e) {
+      debugLog('err', 'VWorld PNU 조회 실패: ' + e.message);
+      setBadge('vwAddrBadge', 'failed', 'VWorld 주소');
+    }
+  } else {
+    setBadge('vwAddrBadge', 'nokey', 'VWorld 주소');
+  }
+
+  // ③, ④ 병렬 실행
+  const promises = [];
+
+  // ③ 건축물대장
+  if (pnuData && dataGoKrApiKey) {
+    setLoadingMsg('건축물대장 + 공시지가 조회 중...');
+    promises.push(
+      fetchBuildingRegister(pnuData, resolvedAddress, dataGoKrApiKey)
+        .then(result => {
+          let status = 'success';
+          let filled = 0;
+
+          if (result.strctCdNm) buildingStrctCdNm = result.strctCdNm;
+
+          if (result.approvalYear) {
+            document.getElementById('approvalYear').value = result.approvalYear;
+            document.getElementById('approvalYear').classList.add('has-auto-value');
+            filled++;
+          }
+          if (result.exclusiveArea) {
+            document.getElementById('exclusiveArea').value = result.exclusiveArea;
+            document.getElementById('exclusiveArea').classList.add('has-auto-value');
+            filled++;
+          }
+          if (result.supplyArea) {
+            document.getElementById('supplyArea').value = result.supplyArea;
+            document.getElementById('supplyArea').classList.add('has-auto-value');
+            filled++;
+          }
+          if (result.landArea) {
+            document.getElementById('landArea').value = result.landArea;
+            document.getElementById('landArea').classList.add('has-auto-value');
+            document.getElementById('landAreaNote').textContent = '(근사값 - 수정 가능)';
+            filled++;
+          }
+
+          if (filled === 0) status = 'failed';
+          else if (filled < 4) status = 'partial';
+          setBadge('bldgBadge', status, '건축물대장');
+        })
+        .catch(e => {
+          debugLog('err', '건축물대장 조회 실패: ' + e.message);
+          setBadge('bldgBadge', 'failed', '건축물대장');
+        })
+    );
+  } else if (!dataGoKrApiKey) {
+    setBadge('bldgBadge', 'nokey', '건축물대장');
+  } else {
+    setBadge('bldgBadge', 'failed', '건축물대장');
+  }
+
+  // ④ 공시지가 (VWorld → data.go.kr 폴백)
+  if (pnuData && (vworldApiKey || vworldNsdiKey || dataGoKrApiKey)) {
+    promises.push(
+      fetchOfficialLandPrice(pnuData.pnu, vworldApiKey, vworldNsdiKey, dataGoKrApiKey)
+        .then(price => {
+          document.getElementById('officialLandPrice').value = price.toLocaleString('ko-KR');
+          document.getElementById('officialLandPrice').classList.add('has-auto-value');
+          setBadge('vwPriceBadge', 'success', '공시지가');
+
+          const pnuEl = document.getElementById('pnuInfo');
+          pnuEl.textContent += ' | 공시지가: ' + price.toLocaleString('ko-KR') + ' 원/㎡';
+        })
+        .catch(e => {
+          debugLog('err', '공시지가 조회 실패: ' + e.message);
+          setBadge('vwPriceBadge', 'failed', '공시지가');
+        })
+    );
+  } else if (!vworldApiKey && !vworldNsdiKey && !dataGoKrApiKey) {
+    setBadge('vwPriceBadge', 'nokey', '공시지가');
+  } else {
+    setBadge('vwPriceBadge', 'failed', '공시지가');
+  }
+
+  await Promise.allSettled(promises);
+
+  // ⑤ 홈택스 건물기준시가 API 호출
+  const htApproval = document.getElementById('approvalYear').value.trim();
+  const htSupply = document.getElementById('supplyArea').value.trim();
+  const htPrice = document.getElementById('officialLandPrice').value.replace(/[^0-9]/g, '');
+  const htSaleYear = document.getElementById('saleYear').value.trim() || String(new Date().getFullYear());
+
+  if (htApproval && htSupply && htPrice) {
+    setLoadingMsg('홈택스 건물기준시가 조회 중...');
+    try {
+      const strcCd = mapStructureCode(buildingStrctCdNm);
+      debugLog('info', `홈택스 호출 준비: 구조="${buildingStrctCdNm}" → 코드=${strcCd}, 용도=01(아파트)`);
+      const htResult = await fetchHomeTaxPrice(htApproval, htSupply, htSaleYear, strcCd, '01', htPrice);
+      if (htResult) {
+        homeTaxResult = htResult;
+        setBadge('hometaxBadge', 'success', '홈택스');
+      } else {
+        setBadge('hometaxBadge', 'failed', '홈택스');
+      }
+    } catch(e) {
+      debugLog('err', '홈택스 API 호출 실패: ' + e.message);
+      setBadge('hometaxBadge', 'failed', '홈택스');
+    }
+  } else {
+    debugLog('warn', `홈택스 호출 불가 - 부족: 승인년도=${htApproval||'없음'}, 면적=${htSupply||'없음'}, 지가=${htPrice||'없음'}`);
+    setBadge('hometaxBadge', 'skip', '홈택스');
+  }
+
+  // 계산 실행
+  recalculate();
+
+  btn.disabled = false;
+  loading.classList.remove('active');
+}
+
+// ===== 홈택스 재조회 + 재계산 =====
+async function fetchHomeTaxAndRecalculate() {
+  const htApproval = document.getElementById('approvalYear').value.trim();
+  const htSupply = document.getElementById('supplyArea').value.trim();
+  const htPrice = document.getElementById('officialLandPrice').value.replace(/[^0-9]/g, '');
+  const htSaleYear = document.getElementById('saleYear').value.trim() || String(new Date().getFullYear());
+
+  if (htApproval && htSupply && htPrice) {
+    debugLog('info', `[재계산] 홈택스 API 재호출 시도...`);
+    setBadge('hometaxBadge', 'loading', '홈택스');
+    try {
+      const strcCd = mapStructureCode(buildingStrctCdNm);
+      debugLog('info', `홈택스 호출: 승인=${htApproval}, 면적=${htSupply}, 연도=${htSaleYear}, 구조=${strcCd}, 지가=${htPrice}`);
+      const htResult = await fetchHomeTaxPrice(htApproval, htSupply, htSaleYear, strcCd, '01', htPrice);
+      if (htResult) {
+        homeTaxResult = htResult;
+        setBadge('hometaxBadge', 'success', '홈택스');
+        debugLog('ok', `[재계산] 홈택스 성공 → 정확한 값으로 재계산`);
+      } else {
+        homeTaxResult = null;
+        setBadge('hometaxBadge', 'failed', '홈택스');
+        debugLog('warn', `[재계산] 홈택스 실패 → 자체 계산 사용`);
+      }
+    } catch(e) {
+      homeTaxResult = null;
+      debugLog('err', `[재계산] 홈택스 에러: ${e.message}`);
+      setBadge('hometaxBadge', 'failed', '홈택스');
+    }
+  } else {
+    debugLog('warn', `[재계산] 홈택스 호출 불가 - 승인=${htApproval||'없음'}, 면적=${htSupply||'없음'}, 지가=${htPrice||'없음'}`);
+  }
+  recalculate();
+}
+
+// ===== 부가세 계산 =====
+function recalculate() {
+  const landArea = parseNum('landArea');
+  const supplyArea = parseNum('supplyArea');
+  const approvalYear = parseNum('approvalYear');
+  const officialLandPrice = parseNum('officialLandPrice');
+  const salePrice = parseNum('salePrice');
+  const saleYear = parseNum('saleYear') || new Date().getFullYear();
+
+  document.getElementById('resultSection').style.display = 'block';
+
+  if (!landArea || !supplyArea || !approvalYear || !officialLandPrice || !salePrice) {
+    ['r_source','r_locationIndex','r_elapsedYears','r_residualRate','r_pricePerSqm',
+     'r_landStd','r_buildStd','r_buildRatio','r_buildValue','r_basePrice',
+     'r_structureIndex','r_usageIndex'].forEach(id => {
+      document.getElementById(id).textContent = '-';
+    });
+    document.getElementById('r_vat').textContent = '입력값 부족';
+    return;
+  }
+
+  let basePrice, structureIndex, usageIndex, locationIndex, residualRate, pricePerSqm, source;
+  const elapsedYears = saleYear - approvalYear;
+
+  if (homeTaxResult && homeTaxResult.sflAmtTrn) {
+    // 홈택스 API 결과 사용
+    source = '홈택스 API';
+    basePrice = homeTaxResult.ncBldBaseCftTrn;
+    structureIndex = homeTaxResult.bldStrcIdxTrn;
+    usageIndex = homeTaxResult.bldUsgIdxTrn;
+    locationIndex = homeTaxResult.bldLctnIdxTrn;
+    residualRate = homeTaxResult.lpcrtTrn;
+    pricePerSqm = homeTaxResult.sflAmtTrn;
+  } else {
+    // 자체 계산 (보정된 공식)
+    source = '자체 계산 (근사값)';
+    basePrice = 840000;
+    structureIndex = 1.1; // 아파트: 철골철근콘크리트 기본
+    usageIndex = 1.1;
+    locationIndex = getLocationIndex(officialLandPrice);
+    residualRate = Math.max(0.20, 1 - elapsedYears * 0.016);
+    pricePerSqm = Math.floor(basePrice * structureIndex * usageIndex * locationIndex * residualRate / 1000) * 1000;
+  }
+
+  const landStandardPrice = officialLandPrice * landArea;
+  const buildingStandardPrice = pricePerSqm * supplyArea;
+  const totalStandardPrice = landStandardPrice + buildingStandardPrice;
+  const buildingRatio = totalStandardPrice > 0 ? buildingStandardPrice / totalStandardPrice : 0;
+  const buildingValue = Math.round(salePrice * buildingRatio);
+  const vat = Math.round(buildingValue * 0.1);
+
+  document.getElementById('r_source').textContent = source;
+  document.getElementById('r_source').style.color = homeTaxResult ? 'var(--success)' : '#a16207';
+  document.getElementById('r_basePrice').textContent = fmt(basePrice) + ' 원/㎡';
+  document.getElementById('r_structureIndex').textContent = structureIndex.toFixed(2);
+  document.getElementById('r_usageIndex').textContent = usageIndex.toFixed(2);
+  document.getElementById('r_locationIndex').textContent = locationIndex.toFixed(2);
+  document.getElementById('r_elapsedYears').textContent = elapsedYears + '년';
+  document.getElementById('r_residualRate').textContent = (residualRate * 100).toFixed(2) + '%';
+  document.getElementById('r_pricePerSqm').textContent = fmt(pricePerSqm) + ' 원/㎡';
+  document.getElementById('r_landStd').textContent = fmt(landStandardPrice) + ' 원';
+  document.getElementById('r_buildStd').textContent = fmt(buildingStandardPrice) + ' 원';
+  document.getElementById('r_buildRatio').textContent = (buildingRatio * 100).toFixed(2) + '%';
+  document.getElementById('r_buildValue').textContent = fmt(buildingValue) + ' 원';
+  document.getElementById('r_vat').textContent = fmt(vat) + ' 원';
+}
+
+// ===== 페이지 로드 =====
+document.addEventListener('DOMContentLoaded', () => {
+  const keys = loadApiKeys();
+  if (!keys.vworld || !keys.dataGoKr) {
+    document.getElementById('settingsBody').classList.add('open');
+  }
+});
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+}
+</script>
+</body>
+</html>
