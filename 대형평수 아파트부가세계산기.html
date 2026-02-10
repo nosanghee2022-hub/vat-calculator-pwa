@@ -669,10 +669,16 @@ function clearDebugLog() {
 }
 
 // ===== API 키 관리 =====
+const DEFAULT_API_KEYS = {
+  vworld: '36764B5F-B4E4-3DD2-A44D-DF38000C0DA9',
+  vworldNsdi: 'D9391468-F71A-3D47-90E8-1C9735E333B1',
+  dataGoKr: 'cc0e2a5867f9d0cdf5fdad1807d1b08a0a6fff9420aa7d1742fdeb27ebb5fe67'
+};
+
 function loadApiKeys() {
-  const vworld = localStorage.getItem('vworld_api_key') || '';
-  const vworldNsdi = localStorage.getItem('vworld_nsdi_api_key') || '';
-  const dataGoKr = localStorage.getItem('data_go_kr_api_key') || '';
+  const vworld = localStorage.getItem('vworld_api_key') || DEFAULT_API_KEYS.vworld;
+  const vworldNsdi = localStorage.getItem('vworld_nsdi_api_key') || DEFAULT_API_KEYS.vworldNsdi;
+  const dataGoKr = localStorage.getItem('data_go_kr_api_key') || DEFAULT_API_KEYS.dataGoKr;
   document.getElementById('vworldApiKey').value = vworld;
   document.getElementById('vworldNsdiKey').value = vworldNsdi;
   document.getElementById('dataGoKrApiKey').value = dataGoKr;

@@ -1,7 +1,7 @@
-const CACHE_NAME = 'vat-calc-v1';
+const CACHE_NAME = 'vat-calc-v2';
 const ASSETS = [
   './',
-  './대형평수 아파트부가세계산기.html'
+  './index.html'
 ];
 
 self.addEventListener('install', e => {

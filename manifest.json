@@ -2,7 +2,7 @@
   "name": "대형평수 아파트 부가세 계산기",
   "short_name": "부가세계산기",
   "description": "대형평수 아파트 건물분 부가세를 계산합니다",
-  "start_url": "./대형평수 아파트부가세계산기.html",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#f5f7fa",
   "theme_color": "#2563eb",
