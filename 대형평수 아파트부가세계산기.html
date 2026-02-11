@@ -332,6 +332,73 @@
 
   .debug-actions button:hover { background: #475569; }
 
+  .history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    gap: 8px;
+  }
+
+  .history-item:last-child { border-bottom: none; }
+
+  .history-info {
+    flex: 1;
+    min-width: 0;
+    cursor: pointer;
+  }
+
+  .history-info:hover { opacity: 0.7; }
+
+  .history-addr {
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .history-meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .history-vat {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--vat-text);
+    white-space: nowrap;
+  }
+
+  .history-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .btn-xs {
+    padding: 4px 10px;
+    font-size: 0.7rem;
+    border-radius: 4px;
+    background: var(--border);
+    color: var(--text-muted);
+  }
+
+  .btn-xs:hover { background: #cbd5e1; }
+  .btn-xs.del { color: var(--fail); }
+  .btn-xs.del:hover { background: #fecaca; }
+
+  .history-empty {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 12px 0;
+  }
+
   @media (max-width: 600px) {
     body { padding: 12px; }
     h1 { font-size: 1.2rem; }
@@ -501,6 +568,14 @@
     <div class="vat-result">
       <div class="vat-label">건물분 부가세 (C x 10%)</div>
       <div class="vat-amount" id="r_vat">-</div>
+    </div>
+  </div>
+
+  <!-- 최근 계산 내역 -->
+  <div class="card" id="historySection">
+    <div class="card-title">최근 계산 내역</div>
+    <div id="historyList">
+      <div class="history-empty">계산 내역이 없습니다.</div>
     </div>
   </div>
 
@@ -714,7 +789,9 @@ function toggleSettings() {
   document.getElementById('settingsBody').classList.toggle('open');
 }
 
-// ===== CORS 프록시 (타임아웃 포함) =====
+// ===== CORS 프록시 (n8n 백엔드 프록시 우선) =====
+const N8N_PROXY_URL = 'https://primary-production-8a9dc.up.railway.app/webhook/vat-proxy';
+
 function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -726,7 +803,44 @@ async function corsProxy(url, options = {}) {
   const isGet = !options.method || options.method === 'GET';
   const shortUrl = url.length > 80 ? url.substring(0, 80) + '...' : url;
 
-  // 1차: 직접 호출
+  // VWorld API는 서버 IP 차단으로 프록시 불가 → 직접 호출 우선
+  const isVWorld = url.includes('api.vworld.kr');
+
+  // 1차: n8n 백엔드 프록시 (CORS 문제 없음 - 모바일/PC 공통, VWorld 제외)
+  if (!isVWorld) try {
+    debugLog('info', `n8n 프록시: <span class="log-url">${shortUrl}</span>`);
+    const proxyRes = await fetchWithTimeout(N8N_PROXY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url,
+        method: options.method || 'GET',
+        headers: options.headers || {},
+        body: options.body || null
+      })
+    }, 25000);
+
+    if (proxyRes.ok) {
+      const proxyData = await proxyRes.json();
+      if (proxyData.error) {
+        debugLog('warn', `n8n 프록시 서버 에러: ${proxyData.error}`);
+      } else {
+        debugLog('ok', `n8n 프록시 성공`);
+        return {
+          ok: (proxyData.status || 200) < 400,
+          status: proxyData.status || 200,
+          json: async () => typeof proxyData.data === 'string' ? JSON.parse(proxyData.data) : proxyData.data,
+          text: async () => typeof proxyData.data === 'string' ? proxyData.data : JSON.stringify(proxyData.data)
+        };
+      }
+    } else {
+      debugLog('warn', `n8n 프록시 HTTP ${proxyRes.status}`);
+    }
+  } catch(e) {
+    debugLog('warn', `n8n 프록시 실패: ${e.name === 'AbortError' ? '타임아웃(25초)' : e.message}`);
+  }
+
+  // 2차: 직접 호출 (VWorld는 여기서 시작)
   try {
     debugLog('info', `직접 호출 시도: <span class="log-url">${shortUrl}</span>`);
     const res = await fetchWithTimeout(url, { ...options, mode: 'cors' }, 8000);
@@ -739,7 +853,7 @@ async function corsProxy(url, options = {}) {
     debugLog('warn', `직접 호출 실패: ${e.name === 'AbortError' ? '타임아웃(8초)' : e.message}`);
   }
 
-  // 2차: corsproxy.io
+  // 3차: corsproxy.io
   try {
     debugLog('info', `corsproxy.io 프록시 시도...`);
     const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
@@ -753,7 +867,7 @@ async function corsProxy(url, options = {}) {
     debugLog('warn', `corsproxy.io 실패: ${e.name === 'AbortError' ? '타임아웃(10초)' : e.message}`);
   }
 
-  // 3차: cors.eu.org
+  // 4차: cors.eu.org
   try {
     debugLog('info', `cors.eu.org 프록시 시도...`);
     const proxyUrl = 'https://cors.eu.org/' + url;
@@ -767,7 +881,7 @@ async function corsProxy(url, options = {}) {
     debugLog('warn', `cors.eu.org 실패: ${e.name === 'AbortError' ? '타임아웃(10초)' : e.message}`);
   }
 
-  // 4차: allorigins (GET만)
+  // 5차: allorigins (GET만)
   if (isGet) {
     try {
       debugLog('info', `allorigins 프록시 시도...`);
@@ -1491,6 +1605,149 @@ function recalculate() {
   document.getElementById('r_buildRatio').textContent = (buildingRatio * 100).toFixed(2) + '%';
   document.getElementById('r_buildValue').textContent = fmt(buildingValue) + ' 원';
   document.getElementById('r_vat').textContent = fmt(vat) + ' 원';
+
+  // 계산 완료 시 히스토리 저장 (viewHistory에서 호출된 경우 스킵)
+  if (!_skipHistorySave) {
+    saveHistory({
+      address: document.getElementById('address').value.trim(),
+      salePrice,
+      landArea,
+      exclusiveArea: parseNum('exclusiveArea'),
+      supplyArea,
+      approvalYear,
+      officialLandPrice,
+      saleYear,
+      source,
+      vat,
+      buildingValue,
+      buildingRatio: Math.round(buildingRatio * 10000) / 10000,
+      debugLogHtml: document.getElementById('debugLog').innerHTML
+    });
+  }
+}
+
+// ===== 계산 내역 관리 (최대 3건) =====
+const HISTORY_KEY = 'vat_calc_history';
+const MAX_HISTORY = 3;
+const MAX_LOG_SIZE = 50000; // debugLogHtml 최대 크기 (50KB)
+let _skipHistorySave = false;
+
+function getHistory() {
+  try {
+    return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+  } catch { return []; }
+}
+
+function saveHistory(entry) {
+  entry.timestamp = new Date().toISOString();
+  // debugLogHtml 크기 제한 (모바일 localStorage 용량 초과 방지)
+  if (entry.debugLogHtml && entry.debugLogHtml.length > MAX_LOG_SIZE) {
+    entry.debugLogHtml = entry.debugLogHtml.substring(0, MAX_LOG_SIZE) + '\n<div style="color:#f59e0b">[로그가 너무 길어 일부 생략됨]</div>';
+  }
+  let list = getHistory();
+  // 같은 주소+매도가 중복 방지 (최신으로 갱신)
+  list = list.filter(h => !(h.address === entry.address && h.salePrice === entry.salePrice));
+  list.unshift(entry);
+  // 3건 초과 삭제
+  if (list.length > MAX_HISTORY) list = list.slice(0, MAX_HISTORY);
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(list));
+  } catch(e) {
+    // 용량 초과 시 로그 제거 후 재시도
+    list.forEach(h => { h.debugLogHtml = ''; });
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(list)); } catch(e2) {}
+  }
+  renderHistory();
+}
+
+function deleteHistory(idx) {
+  let list = getHistory();
+  list.splice(idx, 1);
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(list)); } catch(e) {}
+  renderHistory();
+}
+
+function renderHistory() {
+  const list = getHistory();
+  const container = document.getElementById('historyList');
+  if (list.length === 0) {
+    container.innerHTML = '<div class="history-empty">계산 내역이 없습니다.</div>';
+    return;
+  }
+  container.innerHTML = list.map((h, i) => {
+    const date = new Date(h.timestamp);
+    const dateStr = `${date.getMonth()+1}/${date.getDate()} ${date.getHours()}:${String(date.getMinutes()).padStart(2,'0')}`;
+    const addr = h.address || '주소 없음';
+    const shortAddr = addr.length > 25 ? addr.substring(0, 25) + '...' : addr;
+    return `<div class="history-item">
+      <div class="history-info" onclick="viewHistory(${i})" title="${addr}">
+        <div class="history-addr">${shortAddr}</div>
+        <div class="history-meta">
+          <span>${dateStr}</span>
+          <span>매도 ${fmt(h.salePrice)}원</span>
+          <span>${h.source || ''}</span>
+        </div>
+      </div>
+      <div class="history-vat">${fmt(h.vat)}원</div>
+      <div class="history-actions">
+        <button class="btn-xs del" onclick="deleteHistory(${i})">삭제</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function viewHistory(idx) {
+  const list = getHistory();
+  const h = list[idx];
+  if (!h) return;
+
+  // 입력값 복원
+  document.getElementById('address').value = h.address || '';
+  document.getElementById('salePrice').value = h.salePrice ? fmt(h.salePrice) : '';
+  document.getElementById('landArea').value = h.landArea || '';
+  document.getElementById('exclusiveArea').value = h.exclusiveArea || '';
+  document.getElementById('supplyArea').value = h.supplyArea || '';
+  document.getElementById('approvalYear').value = h.approvalYear || '';
+  document.getElementById('officialLandPrice').value = h.officialLandPrice ? fmt(h.officialLandPrice) : '';
+  document.getElementById('saleYear').value = h.saleYear || '';
+
+  // 데이터/결과 섹션 표시
+  document.getElementById('dataSection').style.display = 'block';
+  document.getElementById('resultSection').style.display = 'block';
+
+  // 디버그 로그 복원
+  if (h.debugLogHtml) {
+    const debugCard = document.getElementById('debugCard');
+    const debugLog = document.getElementById('debugLog');
+    debugCard.style.display = 'block';
+    debugLog.innerHTML = h.debugLogHtml;
+    debugLog.classList.add('active');
+    document.getElementById('debugActions').style.display = 'flex';
+  }
+
+  // 저장된 결과값으로 직접 표시 (재계산하지 않고 원본 유지)
+  homeTaxResult = null;
+  _skipHistorySave = true;
+  recalculate();
+  _skipHistorySave = false;
+
+  // 저장된 source/vat로 덮어쓰기 (홈택스 결과 보존)
+  if (h.source) {
+    document.getElementById('r_source').textContent = h.source;
+    document.getElementById('r_source').style.color = h.source.includes('홈택스') ? 'var(--success)' : '#a16207';
+  }
+  if (h.vat !== undefined) {
+    document.getElementById('r_vat').textContent = fmt(h.vat) + ' 원';
+  }
+  if (h.buildingValue !== undefined) {
+    document.getElementById('r_buildValue').textContent = fmt(h.buildingValue) + ' 원';
+  }
+  if (h.buildingRatio !== undefined) {
+    document.getElementById('r_buildRatio').textContent = (h.buildingRatio * 100).toFixed(2) + '%';
+  }
+
+  // 스크롤 위로
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // ===== 페이지 로드 =====
@@ -1499,6 +1756,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!keys.vworld || !keys.dataGoKr) {
     document.getElementById('settingsBody').classList.add('open');
   }
+  renderHistory();
 });
 </script>
 <script>
