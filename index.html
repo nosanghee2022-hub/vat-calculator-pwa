@@ -876,7 +876,29 @@ async function corsProxy(url, options = {}) {
     debugLog('warn', `n8n 프록시 실패: ${e.name === 'AbortError' ? '타임아웃(25초)' : e.message}`);
   }
 
-  // 2차: 직접 호출 (VWorld는 여기서 시작)
+  // 응답이 HTML(프록시 자체 페이지)이 아닌지 검증
+  function isValidProxyResponse(res) {
+    const ct = (res.headers.get('content-type') || '').toLowerCase();
+    if (ct.includes('text/html')) return false; // 프록시 차단/레이트리밋 페이지
+    return true;
+  }
+
+  // VWorld는 CORS 미지원(직접 호출 불가) → cors.eu.org 우선 시도
+  if (isVWorld) {
+    try {
+      debugLog('info', `cors.eu.org 프록시 시도 (VWorld): <span class="log-url">${shortUrl}</span>`);
+      const res = await fetchWithTimeout('https://cors.eu.org/' + url, options, 12000);
+      if ((res.ok || res.status < 500) && isValidProxyResponse(res)) {
+        debugLog('ok', `cors.eu.org 성공 (VWorld, HTTP ${res.status})`);
+        return res;
+      }
+      debugLog('warn', `cors.eu.org HTTP ${res.status}`);
+    } catch(e) {
+      debugLog('warn', `cors.eu.org 실패: ${e.name === 'AbortError' ? '타임아웃(12초)' : e.message}`);
+    }
+  }
+
+  // 2차: 직접 호출
   try {
     debugLog('info', `직접 호출 시도: <span class="log-url">${shortUrl}</span>`);
     const res = await fetchWithTimeout(url, { ...options, mode: 'cors' }, 8000);
@@ -894,27 +916,29 @@ async function corsProxy(url, options = {}) {
     debugLog('info', `corsproxy.io 프록시 시도...`);
     const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
     const res = await fetchWithTimeout(proxyUrl, options, 10000);
-    if (res.ok || res.status < 500) {
+    if ((res.ok || res.status < 500) && isValidProxyResponse(res)) {
       debugLog('ok', `corsproxy.io 성공 (HTTP ${res.status})`);
       return res;
     }
-    debugLog('warn', `corsproxy.io HTTP ${res.status}`);
+    debugLog('warn', `corsproxy.io 비정상 응답 (HTML 또는 HTTP ${res.status})`);
   } catch(e) {
     debugLog('warn', `corsproxy.io 실패: ${e.name === 'AbortError' ? '타임아웃(10초)' : e.message}`);
   }
 
-  // 4차: cors.eu.org
-  try {
-    debugLog('info', `cors.eu.org 프록시 시도...`);
-    const proxyUrl = 'https://cors.eu.org/' + url;
-    const res = await fetchWithTimeout(proxyUrl, options, 10000);
-    if (res.ok || res.status < 500) {
-      debugLog('ok', `cors.eu.org 성공 (HTTP ${res.status})`);
-      return res;
+  // 4차: cors.eu.org (VWorld이 아닌 경우)
+  if (!isVWorld) {
+    try {
+      debugLog('info', `cors.eu.org 프록시 시도...`);
+      const proxyUrl = 'https://cors.eu.org/' + url;
+      const res = await fetchWithTimeout(proxyUrl, options, 10000);
+      if ((res.ok || res.status < 500) && isValidProxyResponse(res)) {
+        debugLog('ok', `cors.eu.org 성공 (HTTP ${res.status})`);
+        return res;
+      }
+      debugLog('warn', `cors.eu.org HTTP ${res.status}`);
+    } catch(e) {
+      debugLog('warn', `cors.eu.org 실패: ${e.name === 'AbortError' ? '타임아웃(10초)' : e.message}`);
     }
-    debugLog('warn', `cors.eu.org HTTP ${res.status}`);
-  } catch(e) {
-    debugLog('warn', `cors.eu.org 실패: ${e.name === 'AbortError' ? '타임아웃(10초)' : e.message}`);
   }
 
   // 5차: allorigins (GET만)
