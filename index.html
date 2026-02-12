@@ -851,21 +851,26 @@ async function corsProxy(url, options = {}) {
       })
     }, 25000);
 
-    if (proxyRes.ok) {
-      const proxyData = await proxyRes.json();
-      if (proxyData.error) {
-        debugLog('warn', `n8n 프록시 서버 에러: ${proxyData.error}`);
-      } else {
-        debugLog('ok', `n8n 프록시 성공`);
-        return {
-          ok: (proxyData.status || 200) < 400,
-          status: proxyData.status || 200,
-          json: async () => typeof proxyData.data === 'string' ? JSON.parse(proxyData.data) : proxyData.data,
-          text: async () => typeof proxyData.data === 'string' ? proxyData.data : JSON.stringify(proxyData.data)
-        };
-      }
+    const proxyData = await proxyRes.json().catch(() => null);
+    if (!proxyData) {
+      debugLog('warn', `n8n 프록시 응답 파싱 실패 (HTTP ${proxyRes.status})`);
+    } else if (proxyData.error) {
+      debugLog('warn', `n8n 프록시 타겟 에러: ${typeof proxyData.error === 'string' ? proxyData.error : JSON.stringify(proxyData.error).substring(0, 200)}`);
+    } else if (proxyData.data && typeof proxyData.data === 'object' && ('_writeState' in proxyData.data || '_events' in proxyData.data)) {
+      debugLog('warn', `n8n 프록시 비정상 응답 (stream object)`);
     } else {
-      debugLog('warn', `n8n 프록시 HTTP ${proxyRes.status}`);
+      debugLog('ok', `n8n 프록시 성공`);
+      return {
+        ok: (proxyData.status || 200) < 400,
+        status: proxyData.status || 200,
+        json: async () => {
+          if (typeof proxyData.data === 'string') {
+            try { return JSON.parse(proxyData.data); } catch { return proxyData.data; }
+          }
+          return proxyData.data;
+        },
+        text: async () => typeof proxyData.data === 'string' ? proxyData.data : JSON.stringify(proxyData.data)
+      };
     }
   } catch(e) {
     debugLog('warn', `n8n 프록시 실패: ${e.name === 'AbortError' ? '타임아웃(25초)' : e.message}`);

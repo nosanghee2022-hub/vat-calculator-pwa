@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vat-calc-v6';
+const CACHE_NAME = 'vat-calc-v7';
 const ASSETS = [
   './',
   './index.html'
