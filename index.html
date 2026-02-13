@@ -988,11 +988,11 @@ function makePnuResult(pnu, title) {
 // ===== ② VWorld 주소검색 → PNU =====
 async function fetchPNU(address, apiKey) {
   let searchAddr = address
-    .replace(/\s+제?\d+동/, '')
-    .replace(/\s+제?\d+호/, '')
-    .replace(/\s+\S+아파트/, '')
-    .replace(/\s+\S+빌라/, '')
-    .replace(/\s+\d+층/, '')
+    .replace(/\s+\S+아파트/g, '')
+    .replace(/\s+\S+빌라/g, '')
+    .replace(/\s+제?\d+동/g, '')
+    .replace(/\s+\d+층\S*/g, '')
+    .replace(/\s+제?\d+호/g, '')
     .trim();
 
   // ── 1단계: 지번 주소 검색 ──
