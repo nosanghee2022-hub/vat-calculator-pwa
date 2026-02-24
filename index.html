@@ -1188,25 +1188,24 @@ async function fetchBuildingRegister(pnuData, address, dataGoKrKey) {
       const totalRes = await corsProxy(baseExpUrl + '&numOfRows=1&pageNo=1');
       const totalData = await totalRes.json();
       const totalCount = parseInt(totalData?.response?.body?.totalCount || '0');
-      // 첫 페이지 샘플 로그
-      const sampleRes = await corsProxy(baseExpUrl + '&numOfRows=100&pageNo=1');
-      const sampleData = await sampleRes.json();
-      const sampleItems = sampleData?.response?.body?.items?.item;
-      if (sampleItems) {
-        const sArr = Array.isArray(sampleItems) ? sampleItems : [sampleItems];
-        const sample = sArr.slice(0, 3).map(it => `dongNm="${it.dongNm}" hoNm="${it.hoNm}"`);
-        debugLog('info', `전유부 샘플(총${totalCount}건): ${sample.join(' | ')}`);
-      }
 
-      // 페이지 순회하며 매칭 검색 (최대 50페이지)
-      const perPage = 100;
-      for (let pg = 1; pg <= Math.min(Math.ceil(totalCount / perPage), 50); pg++) {
+      // 페이지 순회하며 매칭 검색 (perPage=1000으로 대단지 커버)
+      const perPage = 1000;
+      const maxPages = Math.min(Math.ceil(totalCount / perPage), 100);
+      debugLog('info', `전유부 페이지네이션: 총${totalCount}건, ${maxPages}페이지 순회 (perPage=${perPage})`);
+      const allDongs = new Set();
+      for (let pg = 1; pg <= maxPages; pg++) {
         try {
           const pgRes = await corsProxy(baseExpUrl + `&numOfRows=${perPage}&pageNo=${pg}`);
           const pgData = await pgRes.json();
           const pgItems = pgData?.response?.body?.items?.item;
           if (!pgItems) break;
           const pgArr = Array.isArray(pgItems) ? pgItems : [pgItems];
+
+          for (const it of pgArr) {
+            const d = String(it.dongNm || '').replace(/[^0-9]/g, '');
+            if (d) allDongs.add(d);
+          }
 
           const filtered = pgArr.filter(it => {
             const d = String(it.dongNm || '').replace(/[^0-9]/g, '');
@@ -1220,7 +1219,10 @@ async function fetchBuildingRegister(pnuData, address, dataGoKrKey) {
           }
         } catch(e) { debugLog('warn', `페이지 ${pg} 조회 실패: ${e.message}`); break; }
       }
-      if (!matchedItems) debugLog('warn', '페이지네이션 매칭 실패 - 동/호 불일치');
+      if (!matchedItems) {
+        const dongList = [...allDongs].sort((a,b) => parseInt(a) - parseInt(b)).join(', ');
+        debugLog('warn', `페이지네이션 매칭 실패 - 검색한 동: "${dongNm}", 데이터 내 동 목록: [${dongList}]`);
+      }
     }
 
     if (matchedItems && matchedItems.length > 0) {
