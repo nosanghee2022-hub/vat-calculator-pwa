@@ -1189,12 +1189,12 @@ async function fetchBuildingRegister(pnuData, address, dataGoKrKey) {
       const totalData = await totalRes.json();
       const totalCount = parseInt(totalData?.response?.body?.totalCount || '0');
 
-      // 페이지 순회하며 매칭 검색 (perPage=1000으로 대단지 커버)
+      // 페이지 순회하며 전체 데이터 수집 (perPage=1000으로 대단지 커버)
       const perPage = 1000;
       const maxPages = Math.min(Math.ceil(totalCount / perPage), 100);
       debugLog('info', `전유부 페이지네이션: 총${totalCount}건, ${maxPages}페이지 순회 (perPage=${perPage})`);
       const allDongs = new Set();
-      const dongHoSamples = new Map(); // 동별 호수 샘플 수집
+      const sameDongItems = []; // 같은 동의 전체 레코드
       for (let pg = 1; pg <= maxPages; pg++) {
         try {
           const pgRes = await corsProxy(baseExpUrl + `&numOfRows=${perPage}&pageNo=${pg}`);
@@ -1205,41 +1205,70 @@ async function fetchBuildingRegister(pnuData, address, dataGoKrKey) {
 
           for (const it of pgArr) {
             const d = String(it.dongNm || '').replace(/[^0-9]/g, '');
-            if (d) {
-              allDongs.add(d);
-              // 검색 대상 동의 호수 샘플 수집
-              if (dongNm && d === dongNm) {
-                const rawHo = String(it.hoNm || '');
-                const numHo = rawHo.replace(/[^0-9]/g, '');
-                if (numHo && !dongHoSamples.has(numHo)) {
-                  dongHoSamples.set(numHo, rawHo);
-                }
-              }
-            }
+            if (d) allDongs.add(d);
+            // 같은 동의 레코드 수집
+            if (dongNm && d === dongNm) sameDongItems.push(it);
           }
 
-          const filtered = pgArr.filter(it => {
-            const d = String(it.dongNm || '').replace(/[^0-9]/g, '');
-            const h = String(it.hoNm || '').replace(/[^0-9]/g, '');
-            return (!dongNm || d === dongNm) && (!hoNm || h === hoNm);
-          });
-          if (filtered.length > 0) {
-            matchedItems = filtered;
-            debugLog('ok', `클라이언트 매칭 성공 (pg=${pg}): ${filtered.length}건`);
-            break;
+          // 정확한 동+호 매칭 시도
+          if (!matchedItems) {
+            const filtered = pgArr.filter(it => {
+              const d = String(it.dongNm || '').replace(/[^0-9]/g, '');
+              const h = String(it.hoNm || '').replace(/[^0-9]/g, '');
+              return (!dongNm || d === dongNm) && (!hoNm || h === hoNm);
+            });
+            if (filtered.length > 0) {
+              matchedItems = filtered;
+              debugLog('ok', `클라이언트 매칭 성공 (pg=${pg}): ${filtered.length}건`);
+            }
           }
         } catch(e) { debugLog('warn', `페이지 ${pg} 조회 실패: ${e.message}`); break; }
       }
+
+      // 정확 매칭 실패 시 폴백: 같은 동 + 같은 라인(호수 끝자리)
+      if (!matchedItems && dongNm && hoNm && sameDongItems.length > 0) {
+        const hoSuffix = hoNm.length >= 2 ? hoNm.slice(-2) : hoNm;
+        const lineMatched = sameDongItems.filter(it => {
+          const h = String(it.hoNm || '').replace(/[^0-9]/g, '');
+          return h.length >= 2 && h.slice(-2) === hoSuffix;
+        });
+        if (lineMatched.length > 0) {
+          matchedItems = lineMatched;
+          const sampleHo = [...new Set(lineMatched.map(it => String(it.hoNm || '').replace(/[^0-9]/g, '')))].slice(0, 5).join(',');
+          debugLog('warn', `정확 매칭 실패 → 같은 라인(끝자리 ${hoSuffix}) 폴백: ${lineMatched.length}건 (호수: ${sampleHo})`);
+        }
+      }
+
+      // 라인 매칭도 실패 시: 같은 동의 전유 레코드 중 아무거나
+      if (!matchedItems && dongNm && sameDongItems.length > 0) {
+        const withHo = sameDongItems.filter(it => {
+          const h = String(it.hoNm || '').replace(/[^0-9]/g, '');
+          return h.length > 0;
+        });
+        if (withHo.length > 0) {
+          // 가장 많은 호수의 레코드를 대표로 사용 (같은 평형)
+          const hoCounts = {};
+          for (const it of withHo) {
+            const h = String(it.hoNm || '').replace(/[^0-9]/g, '');
+            hoCounts[h] = (hoCounts[h] || 0) + 1;
+          }
+          const bestHo = Object.entries(hoCounts).sort((a,b) => b[1] - a[1])[0][0];
+          matchedItems = withHo.filter(it => String(it.hoNm || '').replace(/[^0-9]/g, '') === bestHo);
+          debugLog('warn', `라인 매칭도 실패 → 같은 동 대표 호수(${bestHo}) 폴백: ${matchedItems.length}건`);
+        }
+      }
+
       if (!matchedItems) {
         const dongList = [...allDongs].sort((a,b) => parseInt(a) - parseInt(b)).join(', ');
         debugLog('warn', `페이지네이션 매칭 실패 - 검색한 동: "${dongNm}", 데이터 내 동 목록: [${dongList}]`);
-        if (dongNm && dongHoSamples.size > 0) {
-          const hoList = [...dongHoSamples.entries()]
-            .sort((a,b) => parseInt(a[0]) - parseInt(b[0]))
-            .slice(0, 30)
-            .map(([num, raw]) => num !== raw ? `${raw}(=${num})` : num)
-            .join(', ');
-          debugLog('warn', `${dongNm}동 호수 목록(${dongHoSamples.size}건): [${hoList}]`);
+        if (dongNm && sameDongItems.length > 0) {
+          const hoSet = new Set();
+          for (const it of sameDongItems) {
+            const h = String(it.hoNm || '').replace(/[^0-9]/g, '');
+            if (h) hoSet.add(h);
+          }
+          const hoList = [...hoSet].sort((a,b) => parseInt(a) - parseInt(b)).slice(0, 30).join(', ');
+          debugLog('warn', `${dongNm}동 호수 목록(${hoSet.size}건): [${hoList}]`);
         }
       }
     }
