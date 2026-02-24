@@ -1225,7 +1225,19 @@ async function fetchBuildingRegister(pnuData, address, dataGoKrKey) {
         } catch(e) { debugLog('warn', `페이지 ${pg} 조회 실패: ${e.message}`); break; }
       }
 
-      // 정확 매칭 실패 시 폴백: 같은 동 + 같은 라인(호수 끝자리)
+      // 폴백용 헬퍼: 여러 호수 중 대표 1개 호수의 레코드만 추출
+      function pickOneHo(items) {
+        const hoGroups = {};
+        for (const it of items) {
+          const h = String(it.hoNm || '').replace(/[^0-9]/g, '');
+          if (h) { if (!hoGroups[h]) hoGroups[h] = []; hoGroups[h].push(it); }
+        }
+        // 레코드 수가 가장 많은 호수 선택 (전유+공용 모두 있는 완전한 데이터)
+        const best = Object.entries(hoGroups).sort((a,b) => b[1].length - a[1].length)[0];
+        return best ? { ho: best[0], items: best[1] } : null;
+      }
+
+      // 정확 매칭 실패 시 폴백: 같은 동 + 같은 라인(호수 끝자리) → 대표 1개 호수만
       if (!matchedItems && dongNm && hoNm && sameDongItems.length > 0) {
         const hoSuffix = hoNm.length >= 2 ? hoNm.slice(-2) : hoNm;
         const lineMatched = sameDongItems.filter(it => {
@@ -1233,28 +1245,26 @@ async function fetchBuildingRegister(pnuData, address, dataGoKrKey) {
           return h.length >= 2 && h.slice(-2) === hoSuffix;
         });
         if (lineMatched.length > 0) {
-          matchedItems = lineMatched;
-          const sampleHo = [...new Set(lineMatched.map(it => String(it.hoNm || '').replace(/[^0-9]/g, '')))].slice(0, 5).join(',');
-          debugLog('warn', `정확 매칭 실패 → 같은 라인(끝자리 ${hoSuffix}) 폴백: ${lineMatched.length}건 (호수: ${sampleHo})`);
+          const pick = pickOneHo(lineMatched);
+          if (pick) {
+            matchedItems = pick.items;
+            debugLog('warn', `정확 매칭 실패 → 같은 라인(끝자리 ${hoSuffix}) 대표 호수(${pick.ho}) 폴백: ${matchedItems.length}건`);
+          }
         }
       }
 
-      // 라인 매칭도 실패 시: 같은 동의 전유 레코드 중 아무거나
+      // 라인 매칭도 실패 시: 같은 동의 대표 호수 1개
       if (!matchedItems && dongNm && sameDongItems.length > 0) {
         const withHo = sameDongItems.filter(it => {
           const h = String(it.hoNm || '').replace(/[^0-9]/g, '');
           return h.length > 0;
         });
         if (withHo.length > 0) {
-          // 가장 많은 호수의 레코드를 대표로 사용 (같은 평형)
-          const hoCounts = {};
-          for (const it of withHo) {
-            const h = String(it.hoNm || '').replace(/[^0-9]/g, '');
-            hoCounts[h] = (hoCounts[h] || 0) + 1;
+          const pick = pickOneHo(withHo);
+          if (pick) {
+            matchedItems = pick.items;
+            debugLog('warn', `라인 매칭도 실패 → 같은 동 대표 호수(${pick.ho}) 폴백: ${matchedItems.length}건`);
           }
-          const bestHo = Object.entries(hoCounts).sort((a,b) => b[1] - a[1])[0][0];
-          matchedItems = withHo.filter(it => String(it.hoNm || '').replace(/[^0-9]/g, '') === bestHo);
-          debugLog('warn', `라인 매칭도 실패 → 같은 동 대표 호수(${bestHo}) 폴백: ${matchedItems.length}건`);
         }
       }
 
