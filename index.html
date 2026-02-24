@@ -1194,6 +1194,7 @@ async function fetchBuildingRegister(pnuData, address, dataGoKrKey) {
       const maxPages = Math.min(Math.ceil(totalCount / perPage), 100);
       debugLog('info', `전유부 페이지네이션: 총${totalCount}건, ${maxPages}페이지 순회 (perPage=${perPage})`);
       const allDongs = new Set();
+      const dongHoSamples = new Map(); // 동별 호수 샘플 수집
       for (let pg = 1; pg <= maxPages; pg++) {
         try {
           const pgRes = await corsProxy(baseExpUrl + `&numOfRows=${perPage}&pageNo=${pg}`);
@@ -1204,7 +1205,17 @@ async function fetchBuildingRegister(pnuData, address, dataGoKrKey) {
 
           for (const it of pgArr) {
             const d = String(it.dongNm || '').replace(/[^0-9]/g, '');
-            if (d) allDongs.add(d);
+            if (d) {
+              allDongs.add(d);
+              // 검색 대상 동의 호수 샘플 수집
+              if (dongNm && d === dongNm) {
+                const rawHo = String(it.hoNm || '');
+                const numHo = rawHo.replace(/[^0-9]/g, '');
+                if (numHo && !dongHoSamples.has(numHo)) {
+                  dongHoSamples.set(numHo, rawHo);
+                }
+              }
+            }
           }
 
           const filtered = pgArr.filter(it => {
@@ -1222,6 +1233,14 @@ async function fetchBuildingRegister(pnuData, address, dataGoKrKey) {
       if (!matchedItems) {
         const dongList = [...allDongs].sort((a,b) => parseInt(a) - parseInt(b)).join(', ');
         debugLog('warn', `페이지네이션 매칭 실패 - 검색한 동: "${dongNm}", 데이터 내 동 목록: [${dongList}]`);
+        if (dongNm && dongHoSamples.size > 0) {
+          const hoList = [...dongHoSamples.entries()]
+            .sort((a,b) => parseInt(a[0]) - parseInt(b[0]))
+            .slice(0, 30)
+            .map(([num, raw]) => num !== raw ? `${raw}(=${num})` : num)
+            .join(', ');
+          debugLog('warn', `${dongNm}동 호수 목록(${dongHoSamples.size}건): [${hoList}]`);
+        }
       }
     }
 
